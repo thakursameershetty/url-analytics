@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Acme Notes — demo page for heatmaps</title>
+    <!--
+      Demo page for trying on-site heatmaps locally.
+      Open /heatmap-demo.html?key=<site key> on a host that matches the site's domain.
+      In production the snippet is a plain tag:
+        <script defer src="https://your-shortener/s.js" data-site="site_xxx"></script>
+    -->
+    <script>
+      (function () {
+        var key = new URLSearchParams(location.search).get('key');
+        if (!key) return;
+        var s = document.createElement('script');
+        s.src = '/s.js';
+        s.defer = true;
+        s.setAttribute('data-site', key);
+        s.setAttribute('data-dnt', 'ignore');
+        document.head.appendChild(s);
+      })();
+    </script>
+    <style>
+      * { box-sizing: border-box; }
+      body { margin: 0; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; color: #0b0b0b; background: #fcfcfb; }
+      a { color: inherit; }
+      .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+      nav { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+      nav .links a { margin-left: 24px; text-decoration: none; color: #52514e; }
+      .logo { font-weight: 700; font-size: 18px; }
+      .hero { padding: 96px 0 72px; text-align: center; }
+      .hero h1 { font-size: 56px; letter-spacing: -0.03em; margin: 0 0 16px; }
+      .hero p { font-size: 19px; color: #52514e; max-width: 560px; margin: 0 auto 32px; }
+      .btn { display: inline-block; padding: 14px 26px; border-radius: 999px; font-weight: 600; text-decoration: none; border: 0; font-size: 15px; cursor: pointer; }
+      .btn-primary { background: #2a78d6; color: #fff; }
+      .btn-ghost { background: #f1f0ec; color: #0b0b0b; margin-left: 10px; }
+      .shot { margin: 56px auto 0; height: 360px; max-width: 880px; border-radius: 20px; background: #e9e8e2; display: grid; place-items: center; color: #898781; font-size: 15px; }
+      .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; padding: 72px 0; }
+      .card { background: #fff; border: 1px solid #e7e6e0; border-radius: 18px; padding: 24px; }
+      .card h3 { margin: 12px 0 6px; }
+      .card p { margin: 0; color: #52514e; line-height: 1.5; }
+      .icon { width: 40px; height: 40px; border-radius: 12px; background: #cde2fb; }
+      .pricing { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; padding: 24px 0 72px; }
+      .price { font-size: 36px; font-weight: 700; margin: 8px 0 16px; }
+      .plan .btn { width: 100%; text-align: center; margin-top: 18px; }
+      h2 { font-size: 32px; letter-spacing: -0.02em; text-align: center; margin: 0 0 8px; }
+      .faq { max-width: 720px; margin: 0 auto; padding-bottom: 96px; }
+      details { border-bottom: 1px solid #e7e6e0; padding: 18px 4px; }
+      summary { cursor: pointer; font-weight: 600; }
+      footer { border-top: 1px solid #e7e6e0; padding: 32px 0; color: #898781; font-size: 14px; }
+      @media (max-width: 760px) {
+        .hero h1 { font-size: 38px; }
+        .features, .pricing { grid-template-columns: 1fr; }
+        nav .links { display: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <nav>
+        <span class="logo">Acme Notes</span>
+        <span class="links"><a href="#features">Features</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a></span>
+      </nav>
+
+      <section class="hero">
+        <h1>Notes that think with you.</h1>
+        <p>Capture ideas, link them together and find anything in a second. Free for personal use.</p>
+        <a class="btn btn-primary" id="cta" href="#pricing">Start for free</a>
+        <a class="btn btn-ghost" href="#features">See how it works</a>
+        <div class="shot" id="product-shot">Product screenshot</div>
+      </section>
+
+      <section class="features" id="features">
+        <div class="card"><div class="icon"></div><h3>Instant search</h3><p>Every note, every word, under 50ms. Even offline.</p></div>
+        <div class="card"><div class="icon"></div><h3>Linked thinking</h3><p>Type [[ to connect notes and watch your graph grow.</p></div>
+        <div class="card"><div class="icon"></div><h3>Works everywhere</h3><p>Mac, Windows, Linux, iOS and Android — always in sync.</p></div>
+      </section>
+
+      <h2 id="pricing">Simple pricing</h2>
+      <section class="pricing">
+        <div class="card plan"><h3>Personal</h3><div class="price">$0</div><p>Unlimited notes, 1 device.</p><button class="btn btn-ghost" style="margin:18px 0 0">Get Personal</button></div>
+        <div class="card plan"><h3>Pro</h3><div class="price">$8</div><p>All devices, version history.</p><button class="btn btn-primary" id="buy-pro">Get Pro</button></div>
+        <div class="card plan"><h3>Team</h3><div class="price">$15</div><p>Shared spaces and admin.</p><button class="btn btn-ghost" style="margin:18px 0 0">Talk to sales</button></div>
+      </section>
+
+      <section class="faq" id="faq">
+        <h2>Questions</h2>
+        <details><summary>Is there a free plan?</summary><p>Yes — Personal is free forever.</p></details>
+        <details><summary>Can I import from other apps?</summary><p>Markdown, Notion and Evernote imports are built in.</p></details>
+        <details><summary>Where is my data stored?</summary><p>Encrypted on your devices and in our EU data centre.</p></details>
+      </section>
+    </div>
+    <footer><div class="wrap">© Acme Notes · Demo page for testing on-site heatmaps</div></footer>
+  </body>
+</html>

@@ -1,0 +1,136 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Link {
+  id          String   @id @default(cuid())
+  // The slug used in the short URL — either random or a user-chosen alias.
+  shortId     String   @unique
+  originalUrl String
+  title       String?
+  isCustom    Boolean  @default(false)
+  // Append utm_source/medium/campaign on redirect so tools like Clarity or GA
+  // on the destination site can segment visitors by short link and channel.
+  forwardUtm  Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  visits      Visit[]
+}
+
+model Visit {
+  id           String   @id @default(cuid())
+  linkId       String
+  link         Link     @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  // "link" for a normal click, "qr" when the visit came through the QR code.
+  source       String   @default("link")
+  isBot        Boolean  @default(false)
+  ip           String?
+  country      String?
+  countryCode  String?
+  city         String?
+  region       String?
+  latitude     Float?
+  longitude    Float?
+  browser      String?
+  os           String?
+  device       String   @default("Desktop")
+  deviceVendor String?
+  deviceModel  String?
+  language     String?
+  referer      String?
+  // Where the link was opened from: "WhatsApp", "Instagram", "QR code", a ?via= tag…
+  platform     String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+
+  @@index([linkId, createdAt])
+  @@index([createdAt])
+}
+
+// ───────── On-site analytics (heatmaps) ─────────
+// A website you own that runs the /s.js tracking snippet.
+model Site {
+  id         String        @id @default(cuid())
+  // Public key embedded in the snippet (data-site="...").
+  key        String        @unique
+  name       String
+  // Hostname the snippet is allowed to report from, e.g. "example.com" (subdomains included).
+  domain     String
+  createdAt  DateTime      @default(now())
+  lastSeenAt DateTime?
+  sessions   PageSession[]
+  snapshots  PageSnapshot[]
+}
+
+// One page view on a tracked site.
+model PageSession {
+  id          String      @id
+  siteId      String
+  site        Site        @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  // Set when the visitor arrived through a short link (joined to Visit.id / Link.shortId).
+  visitId     String?
+  shortId     String?
+  visitorId   String
+  url         String
+  path        String
+  device      String
+  viewportW   Int
+  viewportH   Int
+  docHeight   Int
+  maxScroll   Int         @default(0)
+  activeMs    Int         @default(0)
+  clicks      Int         @default(0)
+  rageClicks  Int         @default(0)
+  deadClicks  Int         @default(0)
+  referrer    String?
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  startedAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  events      PageEvent[]
+
+  @@index([siteId, path, device, startedAt])
+  @@index([visitId])
+  @@index([shortId])
+}
+
+// A click on a tracked page. Position is stored both as document coordinates and
+// as (element selector + offset inside it) so it can be re-placed if the layout shifts.
+model PageEvent {
+  id        Int         @id @default(autoincrement())
+  sessionId String
+  session   PageSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  // "click", "rage" (part of a rage-click burst) or "dead" (clicked something that did nothing)
+  type      String
+  t         Int
+  x         Int
+  y         Int
+  selector  String?
+  ox        Float?
+  oy        Float?
+  tag       String?
+  text      String?
+
+  @@index([sessionId])
+}
+
+// Script-free copy of a page's HTML, used as the backdrop for its heatmap.
+model PageSnapshot {
+  id        String   @id @default(cuid())
+  siteId    String
+  site      Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  path      String
+  device    String
+  html      String
+  width     Int
+  height    Int
+  updatedAt DateTime @updatedAt
+
+  @@unique([siteId, path, device])
+}
