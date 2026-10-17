@@ -25,3 +25,14 @@ export async function GET(request: Request) {
     },
   });
 }
+
+/** Discards a page copy so the next visit captures a fresh one (e.g. after a redesign). */
+export async function DELETE(request: Request) {
+  const q = new URL(request.url).searchParams;
+  const site = await prisma.site.findUnique({ where: { key: q.get('site') ?? '' }, select: { id: true } });
+  if (!site) return Response.json({ error: 'Site not found' }, { status: 404 });
+  await prisma.pageSnapshot.deleteMany({
+    where: { siteId: site.id, path: q.get('path') ?? '/', device: q.get('device') ?? 'Desktop' },
+  });
+  return Response.json({ ok: true });
+}

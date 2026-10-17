@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { MotionConfig } from 'motion/react';
-import { FileText, Flame, Globe, Link2, Share2 } from 'lucide-react';
+import { Check, FileText, Flame, Globe, Link2, RefreshCw, Share2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { compact, pct } from './charts/shared';
 import HeatmapStage, { heatColor, type ClickPoint, type HeatMode } from './heatmap/HeatmapStage';
@@ -43,7 +43,8 @@ interface HeatmapData {
   devices: { device: string; sessions: number }[];
   links: { shortId: string; sessions: number }[];
   platforms: { platform: string; sessions: number }[];
-  snapshot: { width: number; height: number; updatedAt: string } | null;
+  snapshot: { width: number; height: number; viewportH: number; updatedAt: string } | null;
+  viewportH: number;
   totals: { sessions: number; clicks: number; rage: number; dead: number; avgActiveMs: number; avgScrollPct: number };
   scroll: [number, number][];
   clicks: ClickPoint[];
@@ -246,7 +247,10 @@ export default function HeatmapViewer() {
                   'Loading…'
                 )}
               </h2>
-              <Legend mode={mode} />
+              <div className="flex items-center gap-3">
+                <Legend mode={mode} />
+                {data?.snapshot && <RefreshCopyButton site={data.site.key} path={data.path} device={data.device} onDone={load} />}
+              </div>
             </div>
             {data && data.totals.sessions === 0 ? (
               <div className="grid h-80 place-items-center rounded-2xl bg-surface-2 text-center text-sm text-muted">
@@ -260,6 +264,7 @@ export default function HeatmapViewer() {
                 key={`${data.site.key}|${data.path}|${data.device}`}
                 snapshotUrl={snapshotUrl}
                 pageWidth={pageW}
+                viewportHeight={data.viewportH}
                 pageHeight={pageH}
                 clicks={data.clicks}
                 scroll={data.scroll}
@@ -351,5 +356,27 @@ function Legend({ mode }: { mode: HeatMode }) {
         <span className="grid size-3.5 place-items-center rounded-full bg-[#52514e] text-[9px] font-bold text-white">×</span> Dead click
       </span>
     </span>
+  );
+}
+
+/** Drops the stored page copy; the next visit to that page captures a fresh one. */
+function RefreshCopyButton({ site, path, device, onDone }: { site: string; path: string; device: string; onDone: () => void }) {
+  const [state, setState] = useState<'idle' | 'busy' | 'done'>('idle');
+  return (
+    <button
+      type="button"
+      className="btn-ghost h-7! px-2.5! text-[11px]"
+      disabled={state !== 'idle'}
+      title="Use this after redesigning the page. The next visit captures a fresh copy."
+      onClick={async () => {
+        setState('busy');
+        await fetch(`/api/heatmap/snapshot?${new URLSearchParams({ site, path, device })}`, { method: 'DELETE' }).catch(() => null);
+        setState('done');
+        onDone();
+      }}
+    >
+      {state === 'done' ? <Check className="size-3.5 text-good" /> : <RefreshCw className={`size-3.5 ${state === 'busy' ? 'animate-spin' : ''}`} />}
+      {state === 'done' ? 'New copy on next visit' : 'Refresh page copy'}
+    </button>
   );
 }

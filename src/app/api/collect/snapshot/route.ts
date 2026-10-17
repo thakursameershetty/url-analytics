@@ -10,7 +10,8 @@ export function OPTIONS(request: Request) {
 /** Stores the script-free page HTML that heatmaps are drawn on top of. */
 export async function POST(request: Request) {
   const headers = corsHeaders(request);
-  const body = await readJson(request, 3_200_000);
+  // Canvas content is embedded as images, so copies can run to a few MB.
+  const body = await readJson(request, 9_000_000);
   const key = typeof body?.k === 'string' ? body.k : null;
   const pageUrl = typeof body?.u === 'string' ? body.u : null;
   const html = typeof body?.html === 'string' ? body.html : null;
@@ -24,13 +25,14 @@ export async function POST(request: Request) {
 
   const width = Math.min(10_000, Math.max(1, Math.round(Number(body?.w) || 1280)));
   const height = Math.min(1_000_000, Math.max(1, Math.round(Number(body?.dh) || 1000)));
+  const viewportH = Math.min(10_000, Math.max(1, Math.round(Number(body?.h) || 0)));
   const path = pathOf(pageUrl);
   const device = deviceForWidth(width);
 
   await prisma.pageSnapshot.upsert({
     where: { siteId_path_device: { siteId: site.id, path, device } },
-    create: { siteId: site.id, path, device, html, width, height },
-    update: { html, width, height },
+    create: { siteId: site.id, path, device, html, width, height, viewportH },
+    update: { html, width, height, viewportH },
   });
   return NextResponse.json({ ok: true }, { headers });
 }

@@ -113,9 +113,10 @@ export async function POST(request: Request) {
   if (!existing) {
     const snap = await prisma.pageSnapshot.findUnique({
       where: { siteId_path_device: { siteId: site.id, path, device } },
-      select: { updatedAt: true },
+      select: { updatedAt: true, viewportH: true },
     });
-    snapshot = !snap || Date.now() - snap.updatedAt.getTime() > SNAPSHOT_MAX_AGE_MS;
+    // viewportH 0 = taken by an older snippet that couldn't render full-screen sections correctly.
+    snapshot = !snap || snap.viewportH === 0 || Date.now() - snap.updatedAt.getTime() > SNAPSHOT_MAX_AGE_MS;
   }
 
   return NextResponse.json({ ok: true, snapshot }, { headers });

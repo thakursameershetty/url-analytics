@@ -104,11 +104,15 @@
       parts.unshift(part);
       el = parent;
     }
-    return parts.join(' > ');
+    return parts.join(' > ') || el.tagName.toLowerCase();
   }
   var INTERACTIVE = 'a,button,input,select,textarea,label,summary,details,[role="button"],[role="link"],[role="tab"],[onclick],[contenteditable=""],[contenteditable="true"],[tabindex]';
   function labelOf(el) {
     if (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return null; // never read form values
+    // Big containers (sections, wrappers) would "label" a click with half the page's text.
+    if (/^(HTML|BODY|MAIN|SECTION|ARTICLE|HEADER|FOOTER)$/.test(el.tagName) || el.children.length > 3) {
+      return el.getAttribute('aria-label') || null;
+    }
     var t = (el.getAttribute('aria-label') || el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim();
     return t ? t.slice(0, 80) : null;
   }
@@ -215,11 +219,51 @@
   }
 
   // ---- Page snapshot: script-free HTML used as the heatmap backdrop.
+  function canvasImage(canvas) {
+    try {
+      if (!canvas.width || !canvas.height) return null;
+      var r = canvas.getBoundingClientRect();
+      if (r.width < 4 || r.height < 4) return null;
+      // Downscale big canvases; WebP keeps transparency and stays small.
+      var k = Math.min(1, 1600 / canvas.width);
+      var out = document.createElement('canvas');
+      out.width = Math.round(canvas.width * k);
+      out.height = Math.round(canvas.height * k);
+      var ctx = out.getContext('2d');
+      ctx.drawImage(canvas, 0, 0, out.width, out.height);
+      // Skip fully transparent canvases (effects that haven't drawn anything yet).
+      var px = ctx.getImageData(0, 0, out.width, out.height).data, seen = false;
+      for (var i = 3; i < px.length; i += 4 * 97) { if (px[i] > 8) { seen = true; break; } }
+      if (!seen) return null;
+      return out.toDataURL('image/webp', 0.75);
+    } catch (e) {
+      return null; // cross-origin (tainted) canvas
+    }
+  }
+
   function sendSnapshot() {
     page.snapshotSent = true;
     var run = function () {
       try {
         var root = document.documentElement.cloneNode(true);
+        // Canvas pixels aren't part of the HTML: embed non-empty canvases as images, drop empty ones.
+        var liveCanvases = document.querySelectorAll('canvas');
+        var copyCanvases = root.querySelectorAll('canvas');
+        for (var c = 0; c < liveCanvases.length && c < copyCanvases.length; c++) {
+          var src = canvasImage(liveCanvases[c]);
+          var copy = copyCanvases[c];
+          if (!src) { copy.remove(); continue; }
+          var img = document.createElement('img');
+          ['class', 'style', 'id', 'aria-hidden'].forEach(function (a) {
+            if (copy.hasAttribute(a)) img.setAttribute(a, copy.getAttribute(a));
+          });
+          var cr = liveCanvases[c].getBoundingClientRect();
+          img.style.width = cr.width + 'px';
+          img.style.height = cr.height + 'px';
+          img.alt = '';
+          img.src = src;
+          copy.replaceWith(img);
+        }
         root.querySelectorAll('script,noscript,iframe,object,embed,template').forEach(function (n) { n.remove(); });
         // Strip anything the visitor typed; drop inline event handlers.
         root.querySelectorAll('input,textarea,select,option').forEach(function (n) {
@@ -253,18 +297,28 @@
           head.insertBefore(base, head.firstChild);
         }
         var html = '<!DOCTYPE html>' + root.outerHTML;
-        if (html.length > 3000000) return;
+        if (html.length > 8000000) return;
         fetch(COLLECT + '/snapshot', {
           method: 'POST',
           keepalive: false,
           headers: { 'Content-Type': 'text/plain' },
-          body: JSON.stringify({ k: SITE, u: location.href, w: innerWidth, dh: docHeight(), html: html }),
+          body: JSON.stringify({ k: SITE, u: location.href, w: innerWidth, h: innerHeight, dh: docHeight(), html: html }),
         }).catch(function () {});
       } catch (e) {}
     };
-    // Give images and late layout a moment so the copy matches what people see.
-    if (document.readyState === 'complete') setTimeout(run, 1500);
-    else addEventListener('load', function () { setTimeout(run, 1500); });
+    // Wait for intro animations, late images and layout to settle so the copy matches what
+    // people actually see. Override with data-snapshot-delay="ms" on the script tag.
+    var delay = parseInt(script.getAttribute('data-snapshot-delay'), 10);
+    if (!(delay >= 0)) delay = 4000;
+    var later = function () {
+      setTimeout(function () {
+        // Skip if the visitor already left the tab; the next visit will capture it.
+        if (document.visibilityState === 'visible') run();
+        else page.snapshotSent = false;
+      }, delay);
+    };
+    if (document.readyState === 'complete') later();
+    else addEventListener('load', later);
   }
 
   startPage();

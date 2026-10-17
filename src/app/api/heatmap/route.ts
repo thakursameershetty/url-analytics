@@ -51,7 +51,7 @@ export async function GET(request: Request) {
 
   const sessions = await prisma.pageSession.findMany({
     where: { ...base, ...visitFilter, path, device },
-    select: { id: true, maxScroll: true, docHeight: true, activeMs: true, rageClicks: true, deadClicks: true, clicks: true, shortId: true },
+    select: { id: true, maxScroll: true, docHeight: true, viewportH: true, activeMs: true, rageClicks: true, deadClicks: true, clicks: true, shortId: true },
   });
   const ids = sessions.map((s) => s.id);
 
@@ -66,7 +66,7 @@ export async function GET(request: Request) {
       : Promise.resolve([]),
     prisma.pageSnapshot.findUnique({
       where: { siteId_path_device: { siteId: site.id, path, device } },
-      select: { width: true, height: true, updatedAt: true },
+      select: { width: true, height: true, viewportH: true, updatedAt: true },
     }),
     prisma.pageSession.groupBy({ by: ['shortId'], where: { ...base, shortId: { not: null } }, _count: true }),
   ]);
@@ -84,6 +84,9 @@ export async function GET(request: Request) {
   }
 
   const n = sessions.length || 1;
+  // Screen height to render the page at: the snapshot's own, else the visitors' typical one.
+  const heights = sessions.map((s) => s.viewportH).sort((a, b) => a - b);
+  const viewportH = snapshot?.viewportH || heights[Math.floor(heights.length / 2)] || (device === 'Mobile' ? 844 : 900);
   const platformRows = await prisma.visit.groupBy({
     by: ['platform'],
     where: { id: { in: (await prisma.pageSession.findMany({ where: { ...base, visitId: { not: null } }, select: { visitId: true } })).map((s) => s.visitId!) } },
@@ -103,6 +106,7 @@ export async function GET(request: Request) {
       .map((p) => ({ platform: p.platform!, sessions: p._count }))
       .sort((a, b) => b.sessions - a.sessions),
     snapshot,
+    viewportH,
     totals: {
       sessions: sessions.length,
       clicks: events.length,

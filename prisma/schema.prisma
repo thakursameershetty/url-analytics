@@ -130,6 +130,9 @@ model PageSnapshot {
   html      String
   width     Int
   height    Int
+  // Visitor's viewport height when captured; the viewer renders the copy at this size.
+  // 0 = captured by an older snippet version, so the collector asks for a fresh copy.
+  viewportH Int      @default(0)
   updatedAt DateTime @updatedAt
 
   @@unique([siteId, path, device])
