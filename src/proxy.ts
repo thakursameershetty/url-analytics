@@ -15,6 +15,8 @@ function isPublic(pathname: string) {
   if (/\.[a-z0-9]+$/i.test(pathname)) return true;
   // A single path segment that isn't a dashboard page is a short link → redirect stays public.
   if (/^\/[^/]+$/.test(pathname) && !DASHBOARD_PAGES.has(pathname)) return true;
+  // WhatsApp template button links (/go/<code>), passed through to the WhatsApp Sender app.
+  if (/^\/go\/[^/]+$/.test(pathname)) return true;
   // Everything else — dashboard pages and any route added later — requires sign-in.
   return false;
 }
